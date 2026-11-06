@@ -1,0 +1,93 @@
+{
+  "name": "@local/dsh-workspace-monitor",
+  "version": "1.1.0",
+  "private": true,
+  "author": { "name": "Ansellwan", "url": "https://github.com/Ansellwan" },
+  "type": "module",
+  "description": "工作区会话监控大屏：侧栏入口 + 按工作区分组的会话卡片、运行状态、轮播与会话详情时间线。Workspace session monitoring dashboard for DeepSeek Harness.",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "icon": "icon.svg",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-client-locale": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-layout": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-renderer": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-sidebar": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-workspace": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-session": "^0.2.1-rc.5",
+    "@deepseek-ai/dsh-session-projection": "^0.2.1-rc.5"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-locale": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-layout": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-renderer": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-sidebar": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-slots": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-workspace": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-session": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-session-projection": {
+      "optional": true
+    }
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "README.en.md",
+    "tests/smoke.js"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-workspace"
+      ]
+    },
+    "manifestVersion": 1
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "dashboard",
+    "workspace",
+    "sessions",
+    "monitor"
+  ],
+  "license": "MIT"
+}

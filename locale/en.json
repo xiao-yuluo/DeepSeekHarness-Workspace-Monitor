@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Workspace Session Monitor",
+    "description": "Adds a sidebar entry that opens a workspace dashboard: session cards grouped by workspace, live status lights, automatic carousel when there are many sessions, and a per-session activity timeline in a detail drawer."
+  }
+}

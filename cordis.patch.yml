@@ -1,0 +1,13 @@
+# dsh-workspace-monitor bundle layer: one Host row (session projection) whose Client half
+# registers the sidebar entry and the main dashboard panel.
+# Every field below is validated by the plugin's Config (src: index.js normalizeConfig).
+- insert:
+    - id: dsh-workspace-monitor
+      name: '@local/dsh-workspace-monitor'
+      config:
+        carouselIntervalMs: 8000
+        carouselThreshold: 9
+        carouselWorkspaceThreshold: 3
+        maxSessionsPerWorkspace: 6
+        showArchivedSessions: false
+        statusRefreshIntervalMs: 2000
