@@ -1,6 +1,6 @@
 # dsh-workspace-monitor · workspace session dashboard
 
-Version 1.1.0 | Harness 0.2.1-rc.5 | Cordis bundle (host half + web client half)
+Version 1.2.0 | Harness 0.2.1-rc.5 | Cordis bundle (host half + web client half)
 
 In one line: click the sidebar entry and the main area becomes a monitoring board — every session grouped by workspace, with live status, cumulative usage and last activity; when there are many sessions it pages one workspace at a time; click any card to read that session's activity timeline.
 
@@ -103,7 +103,7 @@ Declared in `cordis.patch.yml` under `insert[0].config`:
 | `statusRefreshIntervalMs` | 2000 | 500–60000 | cadence for recomputing relative timestamps |
 | `showArchivedSessions` | false | boolean | include archived sessions |
 
-Host and Client each normalise the same field table, so an invalid value falls back to its default instead of half-applying. The Host `Config` uses a dependency-free Standard Schema (`Config['~standard'].validate`), so in Plugin Manager the row reports **`unsupported`**: values are edited in the patch and require an app restart. A visual editor would need `@deepseek-ai/schemastery` (not done).
+Host and Client each normalise the same field table, so an invalid value falls back to its default instead of half-applying. Since 1.2.0 the Host `Config` is a Schemastery schema (`import('@deepseek-ai/schemastery')`, resolved by the Loader; if it ever cannot be resolved the export falls back to the dependency-free `~standard` validator, so the plugin still mounts). Measured result: `Config.listConfigs entry=include:dsh-workspace-monitor` moved from `unsupported` to **`schema`** - six typed fields with defaults and descriptions, `acceptsMissing: true` - so the row in the Plugins page offers a config form. Values edited there are written into the profile's `cordis.patch.yml` and the Loader restarts the plugin so they take effect, no app restart needed. Out-of-range numbers never break activation: `clampConfig` pulls them back to the boundary (`carouselIntervalMs: 999999` is used as 120000), while `normalizeConfig` stays available for patch validation and the smoke test.
 
 ---
 
@@ -151,6 +151,7 @@ Never hand-edit the profile's `package.json` or the profile's `cordis.patch.yml`
 
 ## 11. Versions and rollback
 
+- **1.2.0 (2026-11-06)**: the Host `Config` became a Schemastery schema, so the Installed row in the Plugins page now carries a config form (`status: schema`); added `clampConfig` - out-of-range values are pulled back instead of blocking activation.
 - **1.1.0 (2026-11-06)**: restored status rules, grouping and filters, carousel, config, and the read-only event timeline; switched the data source to the framework's own projections; added the context-pressure percentage bar and the projection-key diagnostic.
 - **1.0.0 (2026-11-05)**: first release, dark modular layout.
 

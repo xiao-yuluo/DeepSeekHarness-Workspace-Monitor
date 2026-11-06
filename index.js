@@ -18,8 +18,14 @@ const PROJECTION_KEY = 'dshWorkspaceMonitor';
 const STATE_VERSION = 1;
 
 // ---------------------------------------------------------------------------
-// Config (cordis validates an exported Config through Config['~standard'].validate;
-// a returned `value` is what `apply` receives, so defaults are filled here.)
+// Config
+//
+// The plugin page builds its config form out of a Schemastery schema, so this plugin exports
+// one. `@deepseek-ai/schemastery` is a Host package: the Loader resolves it for an installed
+// bundle even though this checkout has no `node_modules` of its own (verified against
+// `@goodandready/dsh-vision-bridge`, which imports it the same way with no dependencies
+// declared). If it ever cannot be resolved, the export falls back to the hand-rolled
+// `~standard` validator, so the plugin still mounts and still validates its row config.
 // ---------------------------------------------------------------------------
 
 const NUMBER_FIELDS = [
@@ -73,9 +79,74 @@ export function normalizeConfig(input) {
 	return issues.length ? { issues } : { value };
 }
 
-export const Config = {
-	'~standard': { version: 1, vendor: 'dsh-workspace-monitor', validate: normalizeConfig },
-};
+/**
+ * Same fields, but never rejects: a value the form wrote out of range is pulled back into the
+ * range and the default is used for anything that is not a number at all. A tunable that the
+ * page cannot read must not take the dashboard down.
+ * @param {unknown} input
+ * @returns {Record<string, number | boolean>}
+ */
+export function clampConfig(input) {
+	const source = input && typeof input === 'object' && !Array.isArray(input) ? /** @type {Record<string, unknown>} */ (input) : {};
+	/** @type {Record<string, number | boolean>} */
+	const value = {};
+	for (const [name, fallback, min, max] of NUMBER_FIELDS) {
+		const raw = source[name];
+		if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+			value[name] = fallback;
+			continue;
+		}
+		value[name] = Math.min(max, Math.max(min, Math.round(raw)));
+	}
+	for (const [name, fallback] of BOOLEAN_FIELDS) {
+		const raw = source[name];
+		value[name] = typeof raw === 'boolean' ? raw : fallback;
+	}
+	return value;
+}
+
+let schemastery = /** @type {any} */ (null);
+try {
+	schemastery = (await import('@deepseek-ai/schemastery')).default ?? null;
+} catch {
+	// No Host Schemastery in reach: keep the validator-only form of the export.
+	schemastery = null;
+}
+
+export const Config = schemastery
+	? schemastery.object({
+		carouselIntervalMs: schemastery
+			.number()
+			.description('Carousel page interval, ms (1500-120000). 轮播翻页间隔。')
+			.default(8000),
+		carouselThreshold: schemastery
+			.number()
+			.description('Session count in one workspace that starts the carousel (1-200). 单个工作区触发轮播的会话数。')
+			.default(9),
+		carouselWorkspaceThreshold: schemastery
+			.number()
+			.description('Workspace count that starts the carousel (1-50). 触发轮播的工作区数量。')
+			.default(3),
+		maxSessionsPerWorkspace: schemastery
+			.number()
+			.description('Cards shown per workspace group (1-50). 每个工作区显示的会话卡片数。')
+			.default(6),
+		showArchivedSessions: schemastery
+			.boolean()
+			.description('Include archived sessions in the cards. 是否显示已归档会话。')
+			.default(false),
+		statusRefreshIntervalMs: schemastery
+			.number()
+			.description('How often the panel re-reads session status, ms (500-60000). 状态刷新间隔。')
+			.default(2000),
+	})
+	: {
+		'~standard': { version: 1, vendor: 'dsh-workspace-monitor', validate: normalizeConfig },
+	};
+
+/** True when the Schemastery form is live; used by the smoke test and by diagnostics. */
+export const hasConfigSchema = Boolean(schemastery);
+
 
 // ---------------------------------------------------------------------------
 // Projection state
@@ -208,7 +279,7 @@ function view(state) {
  * @param {Record<string, number | boolean>} config
  */
 export function apply(ctx, config) {
-	const known = normalizeConfig(config).value;
+	const known = clampConfig(config);
 	ctx.inject(['sessionProjections'], () => {
 		ctx.sessionProjections.register({
 			key: PROJECTION_KEY,
@@ -220,7 +291,8 @@ export function apply(ctx, config) {
 		});
 	});
 	// Counts are host-side facts; the tunables belong to the Client view, which reads the same
-	// row config through the Client `configForms` map. `known` is validated here so a bad
-	// `cordis.patch.yml` fails at activation instead of surprising the page later.
+	// row config through the Client `configForms` map. Values are clamped here (never rejected)
+	// so a hand-edited `cordis.patch.yml` or a config written by the plugin page cannot take the
+	// panel down; out-of-range numbers come back as the nearest allowed value.
 	void known;
 }

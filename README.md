@@ -1,6 +1,6 @@
 # dsh-workspace-monitor · 工作区会话监控大屏
 
-版本 1.1.0 ｜ 平台 DeepSeek Harness 0.2.1-rc.5 ｜ 形态 Cordis bundle（Host 半区 + Web Client 半区）
+版本 1.2.0 ｜ 平台 DeepSeek Harness 0.2.1-rc.5 ｜ 形态 Cordis bundle（Host 半区 + Web Client 半区）
 
 一句话：侧栏点一下，主区变成一块监控大屏 —— 按工作区分组列出所有会话的实时状态、累计用量与最近活动；会话多了就整工作区分页轮播；点任意卡片看这个会话的操作时间线。
 
@@ -104,7 +104,8 @@
 | `showArchivedSessions` | false | 布尔 | 是否列出归档会话 |
 
 - Host 与 Client 各自有一份同字段表的 `normalizeConfig`：非法值退回默认，界面上不会出现半套配置。
-- Host 侧 `Config` 用的是零依赖 Standard Schema（`Config['~standard'].validate`）。因此 Plugin Manager 里这一行的 schema 状态是 **`unsupported`** —— **改配置只能改 patch，且要重启应用**。想要可视化编辑就得把 `Config` 换成 `@deepseek-ai/schemastery`（未做）。
+- 1.2.0 起 Host 侧 `Config` 是 Host 自带的 Schemastery 定义的 schema（`import('@deepseek-ai/schemastery')`，由 Loader 解析；解析不到会自动回落到零依赖的 `~standard` 校验器，插件不会因此挂掉）。实测 `Config.listConfigs entry=include:dsh-workspace-monitor` 的 `status` 已从 `unsupported` 变成 **`schema`**：六个字段带类型、默认值和中英说明，`acceptsMissing: true`。所以插件页「已安装」这一行有配置入口，在里面改值会写进 profile 的 `cordis.patch.yml`，Loader 重启该插件让新值生效（不需要重启应用）。
+- 超范围的数字不会让插件启动失败：`clampConfig` 把它拉回边界（`carouselIntervalMs: 999999` 实际按 120000 用）；`normalizeConfig` 保留给 patch 校验和冒烟测试。
 - 轮播时一次只渲染一个工作区模块；鼠标进入展示区即暂停，离开恢复；点圆点或 ‹ › 手动换页。
 
 ---
@@ -153,6 +154,7 @@
 
 ## 11. 版本与回滚
 
+- **1.2.0（2026-11-06）**：Host 侧 `Config` 换成 Schemastery schema，插件页「已安装」出现配置入口（`status: schema`）；新增 `clampConfig`，超范围值拉回边界而不是让插件起不来。
 - **1.1.0（2026-11-06）**：功能接线复原（状态判定 / 分组与过滤 / 轮播 / 配置 / 只读事件窗口时间线），数据源改接框架投影，新增上下文压力百分比条与「投影键诊断」。
 - **1.0.0（2026-11-05）**：首版，深色模块化布局。
 

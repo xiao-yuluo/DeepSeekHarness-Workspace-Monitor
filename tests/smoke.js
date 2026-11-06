@@ -253,5 +253,20 @@ cards[0].props.onClick();
 	for (const cleanup of cleanups) { if (typeof cleanup === 'function') cleanup(); }
 	console.log('OK: released retains =', JSON.stringify(releases), ' subscriptions after cleanup =', subscriptions, ' document listeners left =', listeners.length);
 	if (releases.length < 1 || subscriptions !== 0 || listeners.length !== 0) { console.error('FAIL: cleanup is not complete'); process.exit(1); }
+
+	// Host half: the exported Config must carry a validator, and clamping must never reject.
+	const host = await import(new URL('../index.js', import.meta.url).href);
+	const validator = host.Config && host.Config['~standard'] && typeof host.Config['~standard'].validate === 'function';
+	console.log('OK: host Config =', Boolean(host.Config), ' schemastery form =', host.hasConfigSchema, ' validator attached =', Boolean(validator));
+	if (!host.Config || !validator) { console.error('FAIL: the Host export has no Config validator'); process.exit(1); }
+	const clamped = host.clampConfig({ carouselIntervalMs: 999999, maxSessionsPerWorkspace: 'x', showArchivedSessions: 'yes', statusRefreshIntervalMs: 1 });
+	console.log('OK: clampConfig =', JSON.stringify(clamped));
+	if (clamped.carouselIntervalMs !== 120000 || clamped.maxSessionsPerWorkspace !== 6 || clamped.showArchivedSessions !== false || clamped.statusRefreshIntervalMs !== 500) {
+		console.error('FAIL: clampConfig did not pull every value back into range');
+		process.exit(1);
+	}
+	const rejected = host.normalizeConfig({ carouselThreshold: 0 });
+	if (!rejected.issues || rejected.issues.length < 1) { console.error('FAIL: normalizeConfig accepted an out-of-range value'); process.exit(1); }
+	console.log('OK: normalizeConfig rejects out-of-range =', rejected.issues[0].message);
 	console.log('ALL CHECKS PASSED');
 })();
