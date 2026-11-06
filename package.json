@@ -3,6 +3,7 @@
   "version": "1.1.0",
   "private": true,
   "author": { "name": "Ansellwan", "url": "https://github.com/Ansellwan" },
+  "repository": { "type": "git", "url": "git+https://github.com/xiao-yuluo/DeepSeekHarness-Workspace-Monitor.git" },
   "type": "module",
   "description": "工作区会话监控大屏：侧栏入口 + 按工作区分组的会话卡片、运行状态、轮播与会话详情时间线。Workspace session monitoring dashboard for DeepSeek Harness.",
   "main": "index.js",
