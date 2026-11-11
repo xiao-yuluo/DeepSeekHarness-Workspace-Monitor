@@ -166,7 +166,7 @@ Never hand-edit the profile's `package.json` or the profile's `cordis.patch.yml`
 - **1.1.0 (2026-11-06)**: restored status rules, grouping and filters, carousel, config, and the read-only event timeline; switched the data source to the framework's own projections; added the context-pressure percentage bar and the projection-key diagnostic.
 - **1.0.0 (2026-11-05)**: first release, dark modular layout.
 
-Version history is in the two entries above and in this repository's `git log --oneline`. Every release is checked with `node tests/smoke.js` before publishing.
+Version history is in the entries above and in this repository's `git log --oneline`. Every release is checked with `node tests/smoke.js` before publishing.
 
 ---
 
