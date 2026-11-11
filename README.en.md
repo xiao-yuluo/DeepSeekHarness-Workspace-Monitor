@@ -1,6 +1,6 @@
 # dsh-workspace-monitor · workspace session dashboard
 
-Version 1.2.0 | Harness 0.2.1-rc.5 | Cordis bundle (host half + web client half)
+Version 1.3.0 | Harness 0.2.1-rc.5 | Cordis bundle (host half + web client half)
 
 In one line: click the sidebar entry and the main area becomes a monitoring board — every session grouped by workspace, with live status, cumulative usage and last activity; when there are many sessions it pages one workspace at a time; click any card to read that session's activity timeline.
 
@@ -77,6 +77,13 @@ A cell that has no source shows `—` or is not rendered at all. Nothing is esti
 
 Two honest caveats: the framework exposes no standalone "idle" signal, so rule 5 is a fallback; rule 3 needs `turn/end`'s `reason.kind`, which is only available once the host projection actually registers.
 
+### Ordering (since 1.3.0)
+
+- Cards inside a workspace module: **🟢 running → 🔴 interrupted → 🟡 waiting → ⚪ completed**. Within one band the most recently updated session comes first (`updatedAt`, falling back to `sessionListMetadata.lastPromptAt`), and a final id comparison keeps the order stable across refreshes instead of jumping around.
+- The workspace modules themselves use the same bands: a module that has a running session moves to the front. The carousel shows one module at a time, so this decides which workspace you see on the first page.
+- `maxSessionsPerWorkspace` truncates the list *after* sorting, so what gets dropped is always the least urgent part. Not seeing completed sessions inside the cap is the expected result: the counter chips in the module header still cover the whole group, and the "N more sessions not shown" line says how many were cut.
+- Pinning (★) is a marker only, it does not take part in the ordering.
+
 ---
 
 ## 6. What the progress bar really means
@@ -151,6 +158,7 @@ Never hand-edit the profile's `package.json` or the profile's `cordis.patch.yml`
 
 ## 11. Versions and rollback
 
+- **1.3.0 (2026-11-11)**: cards and workspace modules are ordered by urgency (🟢 running → 🔴 interrupted → 🟡 waiting → ⚪ completed, most recently updated first inside a band), so the first carousel page is always a workspace that has a session running, and `maxSessionsPerWorkspace` now cuts only the least urgent sessions; the smoke test asserts the ordering.
 - **1.2.0 (2026-11-06)**: the Host `Config` became a Schemastery schema, so the Installed row in the Plugins page now carries a config form (`status: schema`); added `clampConfig` - out-of-range values are pulled back instead of blocking activation.
 - **1.1.0 (2026-11-06)**: restored status rules, grouping and filters, carousel, config, and the read-only event timeline; switched the data source to the framework's own projections; added the context-pressure percentage bar and the projection-key diagnostic.
 - **1.0.0 (2026-11-05)**: first release, dark modular layout.

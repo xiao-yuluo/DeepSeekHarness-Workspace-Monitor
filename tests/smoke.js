@@ -107,16 +107,19 @@ add('s-arch', '归档会话', monitor(1, 1, 0, 0, 1, 1, 'end-turn', 'qwen3.8-fla
 add('s-blank', '空白会话', undefined, true);
 add('s-learn', '学习工作区会话', undefined);
 add('s-orphan', '未归属会话', undefined);
+add('s-legacy', '上个版本的会话', monitor(2, 2, 3, 0, 1, 2, 'end-turn', 'qwen3.8-flash'));
 
 const statusMap = new Map([
 	['s-run', { running: true, pendingInteraction: undefined, completionUnread: false }],
 	['s-wait', { running: false, pendingInteraction: { kind: 'approval' }, completionUnread: false }],
 ]);
 const list = { ids: Object.keys(byId), byId, phase: 'ready', projectionsBySession };
+// w2 故意排在 w1 前面，而且它组里只有已完成的会话：工作区模块排序必须把它挪到后面，
+// 这样「轮播第一页是有会话在跑的那个工作区」才是被测到的行为，而不是夹具顺序。
 const workspaces = {
 	items: [
+		{ workspaceId: 'w2', path: 'W:/demo-workspace-2', title: 'demo-workspace-2', sessionIds: ['s-legacy'], createdAt: now - 86400000, updatedAt: now },
 		{ workspaceId: 'w1', path: 'W:/demo-workspace', title: 'demo-workspace', sessionIds: ['s-run', 's-wait', 's-done', 's-err', 's-arch', 's-blank', 's-learn'], createdAt: now - 86400000, updatedAt: now },
-		{ workspaceId: 'w2', path: 'W:/demo-workspace-2', title: 'demo-workspace-2', sessionIds: [], createdAt: now - 86400000, updatedAt: now },
 	],
 	archivedSessionIds: ['s-arch'],
 	pinnedSessionIds: ['s-run'],
@@ -195,6 +198,37 @@ walk(tree, (node) => {
 console.log('OK: rendered elements =', count(tree), ' workspace modules =', groups.length, ' cards =', cards.length, ' carousel dots =', dots.length);
 if (!cards.length || !groups.length) { console.error('FAIL: no cards or workspace modules rendered'); process.exit(1); }
 if (dots.length < 1) { console.error('FAIL: carousel is on (7 sessions > threshold path) but no dots rendered'); process.exit(1); }
+
+// 排序断言：夹具里 maxSessionsPerWorkspace = 3。s-learn 没有任何可判定的事实，按 §5 的兜底规则也是「等待」，
+// 所以前三名是 运行中 → 异常中断 → 等待档里更新更近的那一个；已完成的两个必须被截到列表外。
+const knownTitles = ['运行中的会话', '等待回应的会话', '已完成的会话', '异常中断的会话', '学习工作区会话'];
+const titleRank = { '运行中的会话': 0, '异常中断的会话': 1, '等待回应的会话': 2, '学习工作区会话': 2, '已完成的会话': 3 };
+const cardTitles = cards.map((card) => {
+	const texts = [];
+	walk(card, (node) => { if (node.type === 'text' && node.value) texts.push(node.value); });
+	const joined = texts.join('|');
+	const match = knownTitles.find((name) => joined.indexOf(name) !== -1);
+	return match || '(unknown)';
+});
+const cardRanks = cardTitles.map((title) => (title in titleRank ? titleRank[title] : 9));
+console.log('OK: card order =', JSON.stringify(cardTitles), ' ranks =', JSON.stringify(cardRanks));
+if (cardTitles[0] !== '运行中的会话') { console.error('FAIL: 在运行的会话没有排在卡片列表第一位'); process.exit(1); }
+if (cardRanks.some((rank, index) => index > 0 && rank < cardRanks[index - 1])) { console.error('FAIL: 卡片顺序没有按 运行中 > 异常中断 > 等待 > 已完成 排列'); process.exit(1); }
+if (!cardTitles.includes('异常中断的会话')) { console.error('FAIL: 上限截断把异常中断的会话截掉了，运行/异常优先失效'); process.exit(1); }
+if (cardTitles.includes('已完成的会话')) { console.error('FAIL: 已完成的会话排到了上限以内，抢占了更紧急的会话'); process.exit(1); }
+
+// 工作区模块排序断言：轮播一次只渲染一个模块，所以 groups[0] 就是「第一页」。
+// 夹具把只有已完成会话的 w2 写在前面，排序必须把有会话在跑的 w1 挪成第一页。
+const sectionTexts = groups.map((section) => {
+	const texts = [];
+	walk(section, (node) => { if (node.type === 'text' && node.value) texts.push(node.value); });
+	return texts.join('|');
+});
+console.log('OK: 第一页工作区模块 =', JSON.stringify(sectionTexts.map((text) => (text.indexOf('demo-workspace-2') !== -1 ? '只有已完成的组' : text.indexOf('demo-workspace') !== -1 ? '有运行中的组' : '未分组'))));
+if (!(sectionTexts.length > 0 && sectionTexts[0].indexOf('demo-workspace') !== -1 && sectionTexts[0].indexOf('demo-workspace-2') === -1)) {
+	console.error('FAIL: 有会话在跑的工作区没有排到第一个模块（轮播第一页不是它）');
+	process.exit(1);
+}
 
 const pills = new Set();
 walk(tree, (node) => { if (node.type === 'component') { /* component nodes carry no props label here */ } });

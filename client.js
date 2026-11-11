@@ -626,6 +626,16 @@ window.__ModuleLoader__.load({
 				const byId = list.byId || {};
 				const archivedIds = workspaces.archivedSessionIds || [];
 				const pinnedIds = workspaces.pinnedSessionIds || [];
+				// 排序规则：在运行的排前面（running > 异常中断 > 等待 > 已完成），同一档内按最近更新靠前，
+				// 再同则按 id 定序，保证每次刷新顺序稳定。卡片上限（maxSessionsPerWorkspace）截的是列表
+				// 前若干张，所以这条规则同时决定了「谁会被截掉」：被截掉的只会是较不紧急的那些。
+				const STATUS_RANK = { running: 0, error: 1, waiting: 2, completed: 3 };
+				const statusRank = (kind) => (Object.prototype.hasOwnProperty.call(STATUS_RANK, kind) ? STATUS_RANK[kind] : 9);
+				const activityAt = (member) => num(member.summary.updatedAt) || num(member.facts ? member.facts.lastPromptAt : 0);
+				const byStatusThenActivity = (a, b) =>
+					statusRank(a.kind) - statusRank(b.kind)
+					|| activityAt(b) - activityAt(a)
+					|| String(a.id).localeCompare(String(b.id));
 				const build = (ids) => ids.map((id) => {
 					const runtime = statuses && typeof statuses.get === 'function' ? statuses.get(id) : undefined;
 					const facts = readFacts(list, id);
@@ -634,7 +644,7 @@ window.__ModuleLoader__.load({
 						kind: statusOf(runtime, facts),
 						pinned: contains(pinnedIds, id), archived: contains(archivedIds, id),
 					};
-				});
+				}).sort(byStatusThenActivity);
 				const result = [];
 				for (const workspace of asList(workspaces.items)) {
 					const ids = asList(workspace.sessionIds).filter((id) => {
@@ -662,7 +672,21 @@ window.__ModuleLoader__.load({
 					return true;
 				});
 				if (extras.length) result.push({ key: '__ungrouped', title: t('ungrouped'), path: '', created: '', members: build(extras) });
-				return result.filter((group) => group.members.length > 0);
+				// 工作区模块本身也按同一条规则排：有会话在跑的工作区排在前面（轮播一次只显示一个模块，
+				// 所以这条决定了先看哪个工作区），同级按该组最新的活动时间靠前。
+				const groupBest = (group) => {
+					let best = 9;
+					for (const member of group.members) best = Math.min(best, statusRank(member.kind));
+					return best;
+				};
+				const groupNewest = (group) => {
+					let newest = 0;
+					for (const member of group.members) newest = Math.max(newest, activityAt(member));
+					return newest;
+				};
+				return result
+					.filter((group) => group.members.length > 0)
+					.sort((a, b) => groupBest(a) - groupBest(b) || groupNewest(b) - groupNewest(a) || String(a.title).localeCompare(String(b.title)));
 			}, [list, statuses, workspaces, config.showArchivedSessions]);
 
 			const totals = useMemo(() => {
