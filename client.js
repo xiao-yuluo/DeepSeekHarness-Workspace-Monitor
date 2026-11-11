@@ -120,7 +120,7 @@ window.__ModuleLoader__.load({
 			['maxSessionsPerWorkspace', 6, 1, 50],
 			['statusRefreshIntervalMs', 2000, 500, 60000],
 		];
-		const BOOLEAN_FIELDS = [['showArchivedSessions', false]];
+		const BOOLEAN_FIELDS = [['showArchivedSessions', false], ['prioritizeRunningSessions', true]];
 		function normalizeConfig(input) {
 			const source = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
 			const value = {};
@@ -636,15 +636,21 @@ window.__ModuleLoader__.load({
 					statusRank(a.kind) - statusRank(b.kind)
 					|| activityAt(b) - activityAt(a)
 					|| String(a.id).localeCompare(String(b.id));
-				const build = (ids) => ids.map((id) => {
-					const runtime = statuses && typeof statuses.get === 'function' ? statuses.get(id) : undefined;
-					const facts = readFacts(list, id);
-					return {
-						id, summary: byId[id] || { id, displayTitle: id, updatedAt: 0 }, runtime, facts,
-						kind: statusOf(runtime, facts),
-						pinned: contains(pinnedIds, id), archived: contains(archivedIds, id),
-					};
-				}).sort(byStatusThenActivity);
+				const build = (ids) => {
+					const members = ids.map((id) => {
+						const runtime = statuses && typeof statuses.get === 'function' ? statuses.get(id) : undefined;
+						const facts = readFacts(list, id);
+						return {
+							id, summary: byId[id] || { id, displayTitle: id, updatedAt: 0 }, runtime, facts,
+							kind: statusOf(runtime, facts),
+							pinned: contains(pinnedIds, id), archived: contains(archivedIds, id),
+						};
+					});
+					// 关掉 prioritizeRunningSessions 就回到框架给的原始顺序（workspace.sessionIds / list.ids），
+					// 上限截断也跟着回到原顺序的前 N 张。
+					if (config.prioritizeRunningSessions) members.sort(byStatusThenActivity);
+					return members;
+				};
 				const result = [];
 				for (const workspace of asList(workspaces.items)) {
 					const ids = asList(workspace.sessionIds).filter((id) => {
@@ -684,10 +690,10 @@ window.__ModuleLoader__.load({
 					for (const member of group.members) newest = Math.max(newest, activityAt(member));
 					return newest;
 				};
-				return result
-					.filter((group) => group.members.length > 0)
-					.sort((a, b) => groupBest(a) - groupBest(b) || groupNewest(b) - groupNewest(a) || String(a.title).localeCompare(String(b.title)));
-			}, [list, statuses, workspaces, config.showArchivedSessions]);
+				const present = result.filter((group) => group.members.length > 0);
+				if (!config.prioritizeRunningSessions) return present;
+				return present.sort((a, b) => groupBest(a) - groupBest(b) || groupNewest(b) - groupNewest(a) || String(a.title).localeCompare(String(b.title)));
+			}, [list, statuses, workspaces, config.showArchivedSessions, config.prioritizeRunningSessions]);
 
 			const totals = useMemo(() => {
 				const counts = { running: 0, waiting: 0, completed: 0, error: 0, sessions: 0, monitored: 0 };

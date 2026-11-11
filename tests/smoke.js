@@ -288,6 +288,38 @@ cards[0].props.onClick();
 	console.log('OK: released retains =', JSON.stringify(releases), ' subscriptions after cleanup =', subscriptions, ' document listeners left =', listeners.length);
 	if (releases.length < 1 || subscriptions !== 0 || listeners.length !== 0) { console.error('FAIL: cleanup is not complete'); process.exit(1); }
 
+	// 开关断言：prioritizeRunningSessions = false 时必须回到框架给的原始顺序 —— 夹具里 w2 写在前面且只有
+	// 已完成会话，所以第一页应该变成「只有已完成的组」，与上面开关打开时的结果正好相反。
+	const seatsBefore = seats.length;
+	const cleanupsBefore = cleanups.length;
+	api.apply(ctx, { carouselIntervalMs: 8000, carouselThreshold: 9, carouselWorkspaceThreshold: 1, maxSessionsPerWorkspace: 3, showArchivedSessions: false, statusRefreshIntervalMs: 60000, prioritizeRunningSessions: false });
+	store.clear();
+	cursor = 0;
+	scope = 0;
+	const mainOff = seats.slice(seatsBefore).find((seat) => seat.name === 'main').component;
+	const treeOff = render(mainOff, { ...hooks, ctx });
+	const cardsOff = [];
+	const groupsOff = [];
+	walk(treeOff, (node) => {
+		if (node.props && node.props.role === 'button' && typeof node.props.onKeyDown === 'function') cardsOff.push(node);
+		if (node.type === 'section') groupsOff.push(node);
+	});
+	const titlesOff = cardsOff.map((card) => {
+		const texts = [];
+		walk(card, (node) => { if (node.type === 'text' && node.value) texts.push(node.value); });
+		const match = knownTitles.concat(['上个版本的会话']).find((name) => texts.join('|').indexOf(name) !== -1);
+		return match || '(unknown)';
+	});
+	const sectionsOff = groupsOff.map((section) => {
+		const texts = [];
+		walk(section, (node) => { if (node.type === 'text' && node.value) texts.push(node.value); });
+		return texts.join('|');
+	});
+	console.log('OK: 开关关闭时 第一页工作区模块 =', JSON.stringify(sectionsOff.map((text) => (text.indexOf('demo-workspace-2') !== -1 ? '只有已完成的组' : text.indexOf('demo-workspace') !== -1 ? '有运行中的组' : '未分组'))), ' cards =', JSON.stringify(titlesOff));
+	if (!(sectionsOff.length > 0 && sectionsOff[0].indexOf('demo-workspace-2') !== -1)) { console.error('FAIL: 开关关闭后工作区模块仍被重排，开关没生效'); process.exit(1); }
+	if (!titlesOff.includes('上个版本的会话')) { console.error('FAIL: 开关关闭后第一页不是夹具顺序里的第一个工作区'); process.exit(1); }
+	for (const cleanup of cleanups.slice(cleanupsBefore)) { if (typeof cleanup === 'function') cleanup(); }
+
 	// Host half: the exported Config must carry a validator, and clamping must never reject.
 	const host = await import(new URL('../index.js', import.meta.url).href);
 	const validator = host.Config && host.Config['~standard'] && typeof host.Config['~standard'].validate === 'function';
@@ -295,6 +327,9 @@ cards[0].props.onClick();
 	if (!host.Config || !validator) { console.error('FAIL: the Host export has no Config validator'); process.exit(1); }
 	const clamped = host.clampConfig({ carouselIntervalMs: 999999, maxSessionsPerWorkspace: 'x', showArchivedSessions: 'yes', statusRefreshIntervalMs: 1 });
 	console.log('OK: clampConfig =', JSON.stringify(clamped));
+	if (clamped.prioritizeRunningSessions !== true) { console.error('FAIL: prioritizeRunningSessions 的默认值不是 true'); process.exit(1); }
+	if (host.clampConfig({ prioritizeRunningSessions: 'no' }).prioritizeRunningSessions !== true) { console.error('FAIL: 非法的 prioritizeRunningSessions 没有回落到默认值'); process.exit(1); }
+	if (host.clampConfig({ prioritizeRunningSessions: false }).prioritizeRunningSessions !== false) { console.error('FAIL: 显式 false 被吞掉了'); process.exit(1); }
 	if (clamped.carouselIntervalMs !== 120000 || clamped.maxSessionsPerWorkspace !== 6 || clamped.showArchivedSessions !== false || clamped.statusRefreshIntervalMs !== 500) {
 		console.error('FAIL: clampConfig did not pull every value back into range');
 		process.exit(1);

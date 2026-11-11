@@ -35,7 +35,7 @@ const NUMBER_FIELDS = [
 	['maxSessionsPerWorkspace', 6, 1, 50],
 	['statusRefreshIntervalMs', 2000, 500, 60000],
 ];
-const BOOLEAN_FIELDS = [['showArchivedSessions', false]];
+const BOOLEAN_FIELDS = [['showArchivedSessions', false], ['prioritizeRunningSessions', true]];
 
 /**
  * Validate and normalize the row config.
@@ -135,6 +135,10 @@ export const Config = schemastery
 			.boolean()
 			.description('Include archived sessions in the cards. 是否显示已归档会话。')
 			.default(false),
+		prioritizeRunningSessions: schemastery
+			.boolean()
+			.description('Order cards and workspace modules by urgency (running, interrupted, waiting, completed). Off = keep the framework order. 是否把在运行的会话排在前面。')
+			.default(true),
 		statusRefreshIntervalMs: schemastery
 			.number()
 			.description('How often the panel re-reads session status, ms (500-60000). 状态刷新间隔。')
